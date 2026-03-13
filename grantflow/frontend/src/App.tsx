@@ -45,6 +45,7 @@ function App() {
           <Route path="portal/profile" element={<OrgProfilePage />} />
           <Route path="portal/documents" element={<DocumentVaultPage />} />
           <Route path="portal/apply" element={<ApplicationWizardPage />} />
+          <Route path="portal/apply/:id" element={<ApplicationWizardPage />} />
           <Route path="portal/apply/chat" element={<ConversationalApplicationPage />} />
           <Route path="portal/applications/:id" element={<ApplicationDetailPage />} />
         </Route>

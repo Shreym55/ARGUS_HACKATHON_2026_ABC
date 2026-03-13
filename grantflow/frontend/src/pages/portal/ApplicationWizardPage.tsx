@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { fetchJson } from "../../services/api";
 
@@ -66,6 +66,34 @@ type VaultDocument = {
   fileName: string;
   documentType?: string;
   createdAt?: string;
+};
+
+type DraftApplication = {
+  id: string;
+  grantProgramId?: string;
+  currentStep?: string | null;
+  projectTitle?: string | null;
+  problemStatement?: string | null;
+  proposedSolution?: string | null;
+  expectedOutcomes?: string | null;
+  projectLocation?: string | null;
+  projectState?: string | null;
+  projectDistrict?: string | null;
+  projectDurationMonths?: number | null;
+  beneficiaryCount?: number | null;
+  beneficiaryDescription?: string | null;
+  teamMembers?: Array<{
+    name: string;
+    designation: string;
+    qualification?: string;
+    experienceYears?: number;
+  }> | null;
+  budgetLines?: Array<{
+    item: string;
+    amount: number;
+    justification?: string;
+  }> | null;
+  declarationAccepted?: boolean | null;
 };
 
 type Errors = Record<string, string>;
@@ -139,11 +167,13 @@ function ReadOnlyField({ label, value }: { label: string; value?: string | numbe
 
 export default function ApplicationWizardPage() {
   const navigate = useNavigate();
+  const { id: draftIdParam } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const { token } = useAuth();
 
   const grantIdParam = searchParams.get("grantId") ?? "";
-  const startStep = grantIdParam ? 1 : 0;
+  const isResumingDraft = Boolean(draftIdParam);
+  const startStep = grantIdParam || isResumingDraft ? 1 : 0;
 
   // Core state
   const [step, setStep] = useState(startStep);
@@ -190,16 +220,37 @@ export default function ApplicationWizardPage() {
   // Step 6 – declaration
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
 
+  function resolveWizardStep(currentStep?: string | null) {
+    switch (currentStep) {
+      case "organisation":
+        return 1;
+      case "project":
+        return 2;
+      case "team":
+        return 3;
+      case "budget":
+        return 4;
+      case "documents":
+        return 5;
+      case "review":
+        return 6;
+      case "submitted":
+        return 6;
+      default:
+        return startStep;
+    }
+  }
+
   // ── Load programs ──────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (step !== 0) return;
+    if (step !== 0 && !grantProgramId) return;
     setLoadingPrograms(true);
     fetchJson<GrantProgram[]>("/grant-programs")
       .then(setPrograms)
       .catch(() => {})
       .finally(() => setLoadingPrograms(false));
-  }, [step]);
+  }, [step, grantProgramId]);
 
   // ── Load org profile ───────────────────────────────────────────────────────
 
@@ -221,10 +272,55 @@ export default function ApplicationWizardPage() {
       .finally(() => setLoadingDocs(false));
   }, [step, token]);
 
+  // ── Load existing draft on mount ───────────────────────────────────────────
+
+  useEffect(() => {
+    if (!draftIdParam || !token) return;
+
+    fetchJson<DraftApplication>(`/applications/${draftIdParam}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((draft) => {
+        setApplicationId(draft.id);
+        setGrantProgramId(draft.grantProgramId ?? "");
+        setProjectTitle(draft.projectTitle ?? "");
+        setProblemStatement(draft.problemStatement ?? "");
+        setProposedSolution(draft.proposedSolution ?? "");
+        setExpectedOutcomes(draft.expectedOutcomes ?? "");
+        setProjectLocation(draft.projectLocation ?? "");
+        setProjectState(draft.projectState ?? "");
+        setProjectDistrict(draft.projectDistrict ?? "");
+        setProjectDurationMonths(draft.projectDurationMonths ? String(draft.projectDurationMonths) : "");
+        setBeneficiaryCount(draft.beneficiaryCount ? String(draft.beneficiaryCount) : "");
+        setBeneficiaryDescription(draft.beneficiaryDescription ?? "");
+        setTeamMembers(
+          (draft.teamMembers ?? []).map((member) => ({
+            name: member.name ?? "",
+            designation: member.designation ?? "",
+            qualification: member.qualification ?? "",
+            experienceYears: member.experienceYears != null ? String(member.experienceYears) : "",
+          })),
+        );
+        setBudgetLines(
+          (draft.budgetLines ?? []).map((line) => ({
+            item: line.item ?? "",
+            amount: line.amount != null ? String(line.amount) : "",
+            justification: line.justification ?? "",
+          })),
+        );
+        setDeclarationAccepted(Boolean(draft.declarationAccepted));
+        setStep(resolveWizardStep(draft.currentStep));
+      })
+      .catch((err) => {
+        setGlobalError(err instanceof Error ? err.message : "Failed to load application draft.");
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftIdParam, token]);
+
   // ── Create draft on mount (if grantId provided) ────────────────────────────
 
   useEffect(() => {
-    if (!grantIdParam || !token || applicationId) return;
+    if (!grantIdParam || !token || applicationId || draftIdParam) return;
     fetchJson<{ id: string }>("/applications", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -233,7 +329,7 @@ export default function ApplicationWizardPage() {
       .then((res) => setApplicationId(res.id))
       .catch((err) => setGlobalError(err instanceof Error ? err.message : "Failed to create application draft."));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grantIdParam, token]);
+  }, [grantIdParam, token, applicationId, draftIdParam]);
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
