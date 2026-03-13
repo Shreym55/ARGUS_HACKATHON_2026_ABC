@@ -47,12 +47,29 @@ services:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/grantflow
       NODE_ENV: development
       PORT: 3000
+      AI_RUNTIME_URL: http://ai-runtime:8000
       AUTH_SECRET: grantflow-local-auth-secret
     ports:
       - '3001:3000'
     volumes:
       - ./backend:/app
       - /app/node_modules
+
+  ai-runtime:
+    build:
+      context: ./ai-runtime
+      dockerfile: Dockerfile
+    container_name: grantflow-ai-runtime
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      OPENAI_MODEL: gpt-4o-mini
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_DISABLE_LLM: ${AI_DISABLE_LLM:-false}
+    ports:
+      - '8001:8000'
+    volumes:
+      - ./ai-runtime:/app
 
   frontend:
     build:
