@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     app_env: str = Field(default="development", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
-    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    openai_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("OPENAI_API_KEY", "OPEN_API_KEY", "OPENAI_KEY"),
+    )
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
     openai_timeout_seconds: int = Field(default=45, alias="OPENAI_TIMEOUT_SECONDS")
     openai_temperature: float = Field(default=0.1, alias="OPENAI_TEMPERATURE")
@@ -23,4 +26,3 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-

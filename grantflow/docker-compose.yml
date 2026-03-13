@@ -61,10 +61,12 @@ services:
       dockerfile: Dockerfile
     container_name: grantflow-ai-runtime
     restart: unless-stopped
+    env_file:
+      - ./.env
+      - ./ai-runtime/.env
     environment:
       APP_ENV: development
       OPENAI_MODEL: gpt-4o-mini
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_DISABLE_LLM: ${AI_DISABLE_LLM:-false}
     ports:
       - '8002:8000'
