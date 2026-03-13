@@ -3,14 +3,14 @@ import { Outlet, Link } from "react-router-dom";
 function Layout() {
   return (
     <>
-      <header style={{ background: "#1a1a2e", color: "#fff", padding: "1rem 2rem" }}>
-        <nav style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
-          <Link to="/" style={{ color: "#fff", textDecoration: "none", fontSize: "1.25rem", fontWeight: 700 }}>
+      <header className="bg-[#1a1a2e] text-white py-4 px-8">
+        <nav className="flex items-center gap-8">
+          <Link to="/" className="text-white no-underline text-xl font-bold">
             GrantFlow
           </Link>
         </nav>
       </header>
-      <main style={{ flex: 1, padding: "2rem" }}>
+      <main className="flex-1 p-8">
         <Outlet />
       </main>
     </>
