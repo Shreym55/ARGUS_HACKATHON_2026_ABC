@@ -53,6 +53,20 @@ services:
       - ./backend:/app
       - /app/node_modules
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: grantflow-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '5174:5173'
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
 volumes:
   postgres_data:
   pgadmin_data:
