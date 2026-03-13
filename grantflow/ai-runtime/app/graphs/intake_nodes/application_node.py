@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.core.logging import get_logger
@@ -29,6 +30,49 @@ _GRANT_SELECTION_QUESTIONS = {
     GrantType.cdg: "Great! You've selected the Community Development Grant (CDG). Let's get started.\n\n",
     GrantType.eig: "Great! You've selected the Education Innovation Grant (EIG). Let's get started.\n\n",
     GrantType.ecag: "Great! You've selected the Environment & Climate Action Grant (ECAG). Let's get started.\n\n",
+}
+
+_PAUSE_COMMANDS = {
+    "stop",
+    "pause",
+    "cancel",
+    "exit",
+    "quit",
+    "not now",
+    "later",
+    "stop application",
+    "pause application",
+    "cancel application",
+}
+
+_QUESTION_PREFIXES = (
+    "what",
+    "why",
+    "how",
+    "when",
+    "where",
+    "who",
+    "can you",
+    "could you",
+    "would you",
+    "tell me",
+    "explain",
+)
+
+_ACK_MESSAGES = {
+    "ok",
+    "okay",
+    "ok thanks",
+    "okay thanks",
+    "thanks",
+    "thank you",
+    "got it",
+    "noted",
+    "understood",
+    "cool",
+    "great",
+    "sure",
+    "alright",
 }
 
 
@@ -62,6 +106,26 @@ def _llm_extract(field_key: str, field_type: str, question: str, message: str) -
     except Exception:
         pass
     return None
+
+
+def _is_pause_command(message: str) -> bool:
+    lowered = message.strip().lower()
+    return lowered in _PAUSE_COMMANDS
+
+
+def _is_interruption_question(message: str) -> bool:
+    lowered = message.strip().lower()
+    if not lowered:
+        return False
+    if "?" in lowered:
+        return True
+    return lowered.startswith(_QUESTION_PREFIXES)
+
+
+def _is_ack_message(message: str) -> bool:
+    lowered = re.sub(r"[^a-z0-9\s]", " ", message.strip().lower())
+    lowered = " ".join(lowered.split())
+    return lowered in _ACK_MESSAGES
 
 
 def application_node(state: dict) -> dict:
@@ -114,11 +178,83 @@ def application_node(state: dict) -> dict:
     grant_type = GrantType(grant_type_value)
     questions = QUESTION_BANK[grant_type]
 
+    # ── Interrupt handling while form is active ───────────────────────────────
+    if current_field_key and _is_pause_command(message):
+        logger.info(
+            "application_paused",
+            extra={
+                "event": "application_paused",
+                "session_id": session_id,
+                "grant_type": grant_type_value,
+                "paused_at_field": current_field_key,
+                "fields_collected": len(collected),
+            },
+        )
+        response = IntakeChatResponse(
+            session_id=session_id,
+            intent=ChatIntent.application,
+            grant_type=grant_type,
+            reply=(
+                "Okay, I have paused your application and saved your progress.\n\n"
+                "Type **'resume application'** whenever you want to continue."
+            ),
+            collected_fields=collected,
+            current_field_key=None,
+            next_question=None,
+            validation_error=None,
+            is_complete=False,
+            is_submitted=False,
+        )
+        return {"result": response.model_dump(mode="json")}
+
+    # ── Mid-form Q&A interrupt handling ───────────────────────────────────────
+    if current_field_key and _is_interruption_question(message):
+        logger.info(
+            "application_interrupted_for_qna",
+            extra={
+                "event": "application_interrupted_for_qna",
+                "session_id": session_id,
+                "grant_type": grant_type_value,
+                "current_field_key": current_field_key,
+            },
+        )
+        # Delegate to QnA while preserving current_field_key for resume.
+        from .qna_node import qna_node
+
+        return qna_node(state)
+
     # ── Step 2: Process answer for active field ───────────────────────────────
     if current_field_key:
         question_def = next((q for q in questions if q["key"] == current_field_key), None)
         if question_def:
             field_type = question_def["type"]
+            if _is_ack_message(message):
+                logger.info(
+                    "application_ack_noop",
+                    extra={
+                        "event": "application_ack_noop",
+                        "session_id": session_id,
+                        "field_key": current_field_key,
+                        "grant_type": grant_type_value,
+                    },
+                )
+                response = IntakeChatResponse(
+                    session_id=session_id,
+                    intent=ChatIntent.application,
+                    grant_type=grant_type,
+                    reply=(
+                        "No problem. Please provide your answer for the current field:\n\n"
+                        f"{question_def['question']}"
+                    ),
+                    collected_fields=collected,
+                    current_field_key=current_field_key,
+                    next_question=question_def["question"],
+                    validation_error=None,
+                    is_complete=False,
+                    is_submitted=False,
+                )
+                return {"result": response.model_dump(mode="json")}
+
             logger.debug(
                 "application_field_attempt",
                 extra={

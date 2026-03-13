@@ -2,9 +2,11 @@ INTENT_PROMPT = """
 Classify the intent of a user message in GrantFlow — a grant management platform for NGOs.
 
 You receive context about the current session state:
-  - message: the user's latest message
+  - user_msg: the user's latest message
   - has_grant_type: whether a grant type (cdg/eig/ecag) has been selected
   - has_current_field_key: whether the system is ACTIVELY collecting a specific form field
+  - current_field_key: the active form field key, if any
+  - current_field_question: the active form question text, if any
   - grant_type: the selected grant type (if any)
   - fields_collected_count: how many application form fields have been collected so far
 
@@ -25,9 +27,11 @@ qna
 application
   User explicitly wants to apply for a grant, start the intake form, or is providing
   an answer to an active form question during an ongoing application session.
+  Also includes pause/resume/cancel commands during application.
   Examples: "I want to apply", "start my application", "apply for CDG", "begin the form",
   "our organisation name is Sahara Foundation", "we serve 500 rural households",
-  "2018" (answering year_established field), "ngo" (answering org type field)
+  "2018" (answering year_established field), "ngo" (answering org type field),
+  "stop application", "pause", "resume application"
 
 out_of_scope
   Topics completely unrelated to GrantFlow or grants.
@@ -36,17 +40,26 @@ out_of_scope
 
 CLASSIFICATION RULES (priority order)
 ──────────────────────────────────────
-1. If has_current_field_key is TRUE → ALWAYS return "application".
-   The user is answering an active form question, regardless of how it is phrased.
+1. If user message is an explicit application control command
+   ("stop", "pause", "resume", "cancel", "continue application", "resume application")
+   → return "application".
 
-2. If message contains application-start keywords: "apply", "start application", "fill form",
+2. If has_current_field_key is TRUE and user_msg is clearly asking a question,
+   requesting explanation, or asking about grants/process (e.g. contains "?",
+   starts with "what/how/why/can you/tell me/explain") → return "qna".
+
+3. If has_current_field_key is TRUE and user_msg looks like a direct field answer
+   (short factual response, number, date, email, organization info, demographics, etc.)
+   → return "application".
+
+4. If message contains application-start keywords: "apply", "start application", "fill form",
    "submit application", "begin application", "I want to apply", "apply for" → "application"
 
-3. If message asks about grants, eligibility, funding, documents, or GrantFlow processes → "qna"
+5. If message asks about grants, eligibility, funding, documents, or GrantFlow processes → "qna"
 
-4. If message is only a greeting or social phrase → "greeting"
+6. If message is only a greeting or social phrase → "greeting"
 
-5. If topic is fully unrelated to grants or GrantFlow → "out_of_scope"
+7. If topic is fully unrelated to grants or GrantFlow → "out_of_scope"
 
 Return ONLY valid JSON — no markdown, no extra text:
 {"intent": "<greeting|qna|application|out_of_scope>", "reason": "<one sentence>"}
