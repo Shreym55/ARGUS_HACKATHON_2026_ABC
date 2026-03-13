@@ -1,1 +1,262 @@
 @import "tailwindcss";
+
+:root {
+  color: #f3f1ea;
+  background:
+    radial-gradient(circle at top left, rgba(226, 183, 76, 0.28), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(79, 122, 92, 0.24), transparent 32%),
+    linear-gradient(135deg, #0f1720 0%, #162431 42%, #1b2f28 100%);
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: #f3f1ea;
+  background: transparent;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  padding: 1.25rem 1.5rem;
+}
+
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.brand {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.topbar__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.topbar__user,
+.topbar__tag {
+  color: rgba(243, 241, 234, 0.78);
+}
+
+.app-content {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.auth-page {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 2rem;
+  align-items: center;
+  min-height: calc(100vh - 7rem);
+}
+
+.auth-hero h1,
+.dashboard-card h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 5vw, 4.4rem);
+  line-height: 0.98;
+  max-width: 11ch;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #f1c96b;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.auth-copy,
+.dashboard-copy {
+  max-width: 34rem;
+  margin-top: 1.1rem;
+  color: rgba(243, 241, 234, 0.8);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.auth-card,
+.dashboard-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  padding: 1.5rem;
+  background: rgba(10, 17, 24, 0.64);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 65px rgba(0, 0, 0, 0.18);
+}
+
+.auth-card__header {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.tab-button,
+.secondary-button,
+.primary-button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+}
+
+.tab-button {
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(243, 241, 234, 0.82);
+}
+
+.tab-button.is-active {
+  background: #f1c96b;
+  color: #15202d;
+  font-weight: 700;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field span,
+.profile-row dt {
+  color: rgba(243, 241, 234, 0.72);
+  font-size: 0.92rem;
+}
+
+.field input {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f3f1ea;
+}
+
+.field input::placeholder {
+  color: rgba(243, 241, 234, 0.42);
+}
+
+.field input:focus {
+  outline: 2px solid rgba(241, 201, 107, 0.55);
+  outline-offset: 2px;
+}
+
+.primary-button {
+  padding: 1rem 1.2rem;
+  background: linear-gradient(135deg, #f1c96b, #d89b35);
+  color: #14202c;
+  font-weight: 800;
+}
+
+.secondary-button {
+  padding: 0.72rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f1ea;
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.tab-button:hover {
+  transform: translateY(-1px);
+}
+
+.primary-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.dashboard-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 7rem);
+}
+
+.dashboard-card {
+  width: min(100%, 720px);
+}
+
+.profile-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.profile-row dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.form-error {
+  margin: 0;
+  color: #ffb5b5;
+}
+
+@media (max-width: 860px) {
+  .auth-page {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding-top: 2rem;
+  }
+
+  .topbar__nav,
+  .topbar__meta,
+  .profile-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-card,
+  .auth-card {
+    padding: 1.25rem;
+  }
+}

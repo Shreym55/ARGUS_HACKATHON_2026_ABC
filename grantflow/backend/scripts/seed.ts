@@ -22,8 +22,9 @@ import {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function hash(plain: string): string {
-  // SHA-256 placeholder — replace with bcrypt in production
-  return crypto.createHash('sha256').update(plain).digest('hex');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hashed = crypto.scryptSync(plain, salt, 64).toString('hex');
+  return `${salt}:${hashed}`;
 }
 
 // ─── db ───────────────────────────────────────────────────────────────────────

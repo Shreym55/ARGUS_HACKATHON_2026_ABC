@@ -47,6 +47,7 @@ services:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/grantflow
       NODE_ENV: development
       PORT: 3000
+      AUTH_SECRET: grantflow-local-auth-secret
     ports:
       - '3001:3000'
     volumes:

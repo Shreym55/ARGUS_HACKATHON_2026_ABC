@@ -1,19 +1,32 @@
 import { Outlet, Link } from "react-router-dom";
+import { useAuth } from "../auth";
 
 function Layout() {
+  const { user, logout } = useAuth();
+
   return (
-    <>
-      <header className="bg-[#1a1a2e] text-white py-4 px-8">
-        <nav className="flex items-center gap-8">
-          <Link to="/" className="text-white no-underline text-xl font-bold">
+    <div className="app-shell">
+      <header className="topbar">
+        <nav className="topbar__nav">
+          <Link to={user ? "/dashboard" : "/"} className="brand">
             GrantFlow
           </Link>
+          {user ? (
+            <div className="topbar__meta">
+              <span className="topbar__user">{user.email}</span>
+              <button type="button" className="secondary-button" onClick={logout}>
+                Log out
+              </button>
+            </div>
+          ) : (
+            <span className="topbar__tag">Grant management workspace</span>
+          )}
         </nav>
       </header>
-      <main className="flex-1 p-8">
+      <main className="app-content">
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }
 
