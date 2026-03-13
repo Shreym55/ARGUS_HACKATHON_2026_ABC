@@ -13,13 +13,21 @@ function Layout() {
           </Link>
           {user ? (
             <div className="topbar__meta">
+              <Link to="/grants/chat" className="secondary-button">
+                AI Intake Chat
+              </Link>
               <span className="topbar__user">{user.email}</span>
               <button type="button" className="secondary-button" onClick={logout}>
                 Log out
               </button>
             </div>
           ) : (
-            <span className="topbar__tag">Grant management workspace</span>
+            <div className="topbar__meta">
+              <Link to="/grants/chat" className="secondary-button">
+                Try AI Intake
+              </Link>
+              <span className="topbar__tag">Grant management workspace</span>
+            </div>
           )}
         </nav>
       </header>

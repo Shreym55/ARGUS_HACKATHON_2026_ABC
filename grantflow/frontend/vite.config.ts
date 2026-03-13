@@ -19,6 +19,11 @@ export default defineConfig({
         target: "http://backend:3000",
         changeOrigin: true,
       },
+      "/ai": {
+        target: "http://ai-runtime:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ai/, ""),
+      },
     },
   },
 });

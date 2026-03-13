@@ -1,43 +1,36 @@
 from __future__ import annotations
 
-from datetime import date
-from typing import Any
-
 from app.data.chat_question_bank import QUESTION_BANK
-from app.schemas.ai_models import IntakeTurnRequest, IntakeTurnResponse
+from app.graphs.intake_graph import get_intake_graph
+from app.graphs.intake_nodes.common import validate_value
+from app.schemas.ai_models import IntakeChatRequest, IntakeChatResponse, IntakeTurnRequest, IntakeTurnResponse
 
 
-def _validate_value(field_type: str, value: Any) -> str | None:
-    if value is None:
-        return "Value is required."
+class IntakeOrchestratorService:
+    def __init__(self) -> None:
+        self._graph = get_intake_graph()
 
-    if field_type == "int":
-        try:
-            int(value)
-        except (TypeError, ValueError):
-            return "Please provide a whole number."
-    elif field_type == "float":
-        try:
-            float(value)
-        except (TypeError, ValueError):
-            return "Please provide a numeric value."
-    elif field_type == "email":
-        value_str = str(value).strip()
-        if "@" not in value_str or "." not in value_str.split("@")[-1]:
-            return "Please provide a valid email address."
-    elif field_type == "date":
-        try:
-            date.fromisoformat(str(value))
-        except ValueError:
-            return "Please provide date in YYYY-MM-DD format."
-    else:
-        if not str(value).strip():
-            return "Please provide a non-empty value."
+    def run_chat_turn(self, request: IntakeChatRequest) -> IntakeChatResponse:
+        state = {
+            "session_id": request.session_id,
+            "message": request.message,
+            "grant_type": request.grant_type.value if request.grant_type else None,
+            "collected_fields": request.collected_fields,
+            "current_field_key": request.current_field_key,
+        }
+        result = self._graph.invoke(state)
+        return IntakeChatResponse.model_validate(result["result"])
 
-    return None
+
+intake_orchestrator_service = IntakeOrchestratorService()
+
+
+def handle_intake_chat(request: IntakeChatRequest) -> IntakeChatResponse:
+    return intake_orchestrator_service.run_chat_turn(request)
 
 
 def handle_intake_turn(request: IntakeTurnRequest) -> IntakeTurnResponse:
+    # Backward compatible endpoint for existing clients.
     questions = QUESTION_BANK[request.grant_type]
     collected = dict(request.collected_fields)
     validation_error = None
@@ -45,7 +38,7 @@ def handle_intake_turn(request: IntakeTurnRequest) -> IntakeTurnResponse:
     if request.last_field_key:
         question_def = next((q for q in questions if q["key"] == request.last_field_key), None)
         if question_def:
-            validation_error = _validate_value(question_def["type"], request.last_answer)
+            validation_error = validate_value(question_def["type"], request.last_answer)
             if not validation_error:
                 collected[request.last_field_key] = request.last_answer
 

@@ -43,6 +43,13 @@ class ComplianceAction(str, Enum):
     flag_compliance_action = "flag_compliance_action"
 
 
+class ChatIntent(str, Enum):
+    greeting = "greeting"
+    out_of_scope = "out_of_scope"
+    qna = "qna"
+    application = "application"
+
+
 class BudgetLine(BaseModel):
     category: str
     amount: float = 0.0
@@ -263,3 +270,35 @@ class IntakeTurnResponse(BaseModel):
     next_question: str | None = None
     validation_error: str | None = None
     is_complete: bool = False
+
+
+class IntakeChatRequest(BaseModel):
+    session_id: str
+    message: str
+    grant_type: GrantType | None = None
+    collected_fields: dict[str, Any] = Field(default_factory=dict)
+    current_field_key: str | None = None
+
+
+class IntakeChatResponse(BaseModel):
+    session_id: str
+    intent: ChatIntent
+    grant_type: GrantType | None = None
+    reply: str
+    collected_fields: dict[str, Any] = Field(default_factory=dict)
+    current_field_key: str | None = None
+    next_question: str | None = None
+    validation_error: str | None = None
+    is_complete: bool = False
+    is_submitted: bool = False
+    application_id: str | None = None
+    screening_result: dict[str, Any] | None = None
+
+
+class IntentClassificationLLMOutput(BaseModel):
+    intent: ChatIntent
+    reason: str
+
+
+class QnaLLMOutput(BaseModel):
+    answer: str

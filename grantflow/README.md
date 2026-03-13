@@ -31,6 +31,7 @@ Services:
 - `POST /api/v1/screening/analyze`
 - `POST /api/v1/review/package`
 - `POST /api/v1/compliance/analyze`
+- `POST /api/v1/intake/chat`
 - `POST /api/v1/intake/next-question`
 - `GET /health`
 

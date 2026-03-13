@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     openai_timeout_seconds: int = Field(default=45, alias="OPENAI_TIMEOUT_SECONDS")
     openai_temperature: float = Field(default=0.1, alias="OPENAI_TEMPERATURE")
     ai_disable_llm: bool = Field(default=False, alias="AI_DISABLE_LLM")
+    app_db_path: str = Field(default="/tmp/grantflow_ai_runtime.db", alias="APP_DB_PATH")
 
 
 @lru_cache(maxsize=1)

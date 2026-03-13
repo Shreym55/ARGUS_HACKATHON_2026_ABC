@@ -7,6 +7,7 @@ from app.api.review import router as review_router
 from app.api.screening import router as screening_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.services.application_store import init_application_store
 
 settings = get_settings()
 setup_logging(settings.log_level)
@@ -22,3 +23,8 @@ app.include_router(screening_router, prefix="/api/v1")
 app.include_router(review_router, prefix="/api/v1")
 app.include_router(compliance_router, prefix="/api/v1")
 app.include_router(intake_router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+def startup() -> None:
+    init_application_store()

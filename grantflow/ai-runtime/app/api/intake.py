@@ -1,9 +1,14 @@
 from fastapi import APIRouter
 
-from app.schemas.ai_models import IntakeTurnRequest
-from app.services.chat_intake_service import handle_intake_turn
+from app.schemas.ai_models import IntakeChatRequest, IntakeTurnRequest
+from app.services.chat_intake_service import handle_intake_chat, handle_intake_turn
 
 router = APIRouter(prefix="/intake", tags=["intake"])
+
+
+@router.post("/chat")
+def intake_chat(request: IntakeChatRequest) -> dict:
+    return handle_intake_chat(request).model_dump(mode="json")
 
 
 @router.post("/next-question")
