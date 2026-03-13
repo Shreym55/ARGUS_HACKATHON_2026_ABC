@@ -5,7 +5,6 @@ echo "⏳ Installing dependencies..."
 npm install
 
 echo "🔄 Running migrations..."
-npm run db:generate
 npm run db:migrate
 
 echo "🌱 Seeding database..."

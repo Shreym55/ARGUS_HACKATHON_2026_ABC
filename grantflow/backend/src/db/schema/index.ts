@@ -32,3 +32,6 @@ export * from './notifications';
 
 // Audit
 export * from './audit-logs';
+
+// Applicant document vault
+export * from './document-vault';

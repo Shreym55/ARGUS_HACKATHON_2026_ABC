@@ -1,33 +1,45 @@
-import { Outlet, Link } from "react-router-dom";
-import { useAuth } from "../auth";
+import { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import Sidebar from './Sidebar';
 
-function Layout() {
-  const { user, logout } = useAuth();
+export default function Layout() {
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <nav className="topbar__nav">
-          <Link to={user ? "/dashboard" : "/"} className="brand">
-            GrantFlow
-          </Link>
-          {user ? (
-            <div className="topbar__meta">
-              <span className="topbar__user">{user.email}</span>
-              <button type="button" className="secondary-button" onClick={logout}>
-                Log out
-              </button>
-            </div>
-          ) : (
-            <span className="topbar__tag">Grant management workspace</span>
-          )}
-        </nav>
-      </header>
-      <main className="app-content">
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8f7f3' }}>
+      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+
+      {/* Mobile overlay backdrop */}
+      {!collapsed && (
+        <div
+          onClick={() => setCollapsed(true)}
+          style={{
+            display: 'none',
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            zIndex: 199,
+          }}
+          className="mobile-backdrop"
+        />
+      )}
+
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <Outlet />
       </main>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .mobile-backdrop { display: block !important; }
+        }
+      `}</style>
     </div>
   );
 }
-
-export default Layout;

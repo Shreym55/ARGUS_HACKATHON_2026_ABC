@@ -8,6 +8,41 @@
       "when": 1773397266222,
       "tag": "0000_good_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1741824000000,
+      "tag": "0001_grant_programme_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773407437397,
+      "tag": "0002_first_dazzler",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1741910400000,
+      "tag": "0003_applicant_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1773410400000,
+      "tag": "0004_organizations_profile_hotfix",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773412200000,
+      "tag": "0005_applicant_portal_repair",
+      "breakpoints": true
     }
   ]
 }

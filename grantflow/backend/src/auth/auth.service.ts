@@ -16,6 +16,7 @@ type PublicUser = {
   email: string;
   fullName: string;
   role: string;
+  isEmailVerified: boolean;
 };
 
 type TokenPayload = {
@@ -28,6 +29,7 @@ export type RegisterDto = {
   email?: string;
   password?: string;
   fullName?: string;
+  phoneNumber?: string;
 };
 
 export type LoginDto = {
@@ -35,10 +37,18 @@ export type LoginDto = {
   password?: string;
 };
 
+export type VerifyEmailDto = {
+  token?: string;
+};
+
 export type AuthResponse = {
   token: string;
   user: PublicUser;
+  verificationToken?: string;
+  requiresVerification: boolean;
 };
+
+export type LogoutResponse = { success: boolean };
 
 @Injectable()
 export class AuthService {
@@ -51,18 +61,16 @@ export class AuthService {
     const email = body.email?.trim().toLowerCase();
     const password = body.password?.trim();
     const fullName = body.fullName?.trim();
+    const phoneNumber = body.phoneNumber?.trim() || null;
 
     if (!email || !password || !fullName) {
       throw new BadRequestException('Email, password, and full name are required.');
     }
-
     if (password.length < 8) {
       throw new BadRequestException('Password must be at least 8 characters.');
     }
 
-    const existingUser = await this.findUserByEmail(email);
-
-    if (existingUser) {
+    if (await this.findUserByEmail(email)) {
       throw new ConflictException('An account with this email already exists.');
     }
 
@@ -71,19 +79,24 @@ export class AuthService {
       .values({
         email,
         fullName,
+        phoneNumber,
         passwordHash: this.hashPassword(password),
         role: 'applicant',
+        isEmailVerified: true,
+        emailVerificationToken: null,
       })
       .returning({
         id: users.id,
         email: users.email,
         fullName: users.fullName,
         role: users.role,
+        isEmailVerified: users.isEmailVerified,
       });
 
     return {
       token: await this.signToken(createdUser),
       user: createdUser,
+      requiresVerification: false,
     };
   }
 
@@ -96,13 +109,11 @@ export class AuthService {
     }
 
     const user = await this.findUserByEmail(email);
-
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
     const passwordState = this.verifyPassword(password, user.passwordHash);
-
     if (!passwordState.isValid) {
       throw new UnauthorizedException('Invalid email or password.');
     }
@@ -119,7 +130,37 @@ export class AuthService {
     return {
       token: await this.signToken(user),
       user: this.toPublicUser(user),
+      requiresVerification: false,
     };
+  }
+
+  async verifyEmail(userId: string, body: VerifyEmailDto): Promise<{ success: boolean }> {
+    const token = body.token?.trim();
+    if (!token) throw new BadRequestException('Verification token is required.');
+
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) throw new UnauthorizedException('User not found.');
+    if (user.isEmailVerified) return { success: true };
+
+    if (user.emailVerificationToken !== token) {
+      throw new BadRequestException('Invalid verification code.');
+    }
+
+    await this.db
+      .update(users)
+      .set({ isEmailVerified: true, emailVerificationToken: null, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    return { success: true };
+  }
+
+  async resendVerification(userId: string): Promise<{ verificationToken: string }> {
+    const newToken = this.generateOtp();
+    await this.db
+      .update(users)
+      .set({ emailVerificationToken: newToken, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    return { verificationToken: newToken }; // prod: send via email, don't return
   }
 
   async getCurrentUser(authorization?: string): Promise<{ user: PublicUser }> {
@@ -133,23 +174,27 @@ export class AuthService {
         fullName: users.fullName,
         role: users.role,
         isActive: users.isActive,
+        isEmailVerified: users.isEmailVerified,
       })
       .from(users)
       .where(eq(users.id, payload.sub))
       .limit(1);
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Session is no longer valid.');
-    }
+    if (!user || !user.isActive) throw new UnauthorizedException('Session is no longer valid.');
 
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-      },
-    };
+    return { user: this.toPublicUser(user) };
+  }
+
+  async logout(authorization?: string): Promise<LogoutResponse> {
+    const token = this.extractBearerToken(authorization);
+    await this.verifyToken(token);
+    return { success: true };
+  }
+
+  // ── Helpers (some exposed for use by other modules) ──────────────────────
+
+  generateOtp(): string {
+    return String(Math.floor(100000 + Math.random() * 900000));
   }
 
   private async findUserByEmail(email: string) {
@@ -157,12 +202,13 @@ export class AuthService {
     return user;
   }
 
-  private toPublicUser(user: typeof users.$inferSelect): PublicUser {
+  private toPublicUser(user: any): PublicUser {
     return {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      isEmailVerified: user.isEmailVerified ?? false,
     };
   }
 
@@ -172,12 +218,8 @@ export class AuthService {
     return `${salt}:${hash}`;
   }
 
-  private verifyPassword(password: string, storedHash: string): {
-    isValid: boolean;
-    needsRehash: boolean;
-  } {
+  private verifyPassword(password: string, storedHash: string) {
     const [salt, originalHash] = storedHash.split(':');
-
     if (!salt || !originalHash) {
       const legacyHash = createHash('sha256').update(password).digest('hex');
       return {
@@ -185,49 +227,29 @@ export class AuthService {
         needsRehash: true,
       };
     }
-
     const hash = scryptSync(password, salt, 64);
     const original = Buffer.from(originalHash, 'hex');
-
-    if (hash.length !== original.length) {
-      return { isValid: false, needsRehash: false };
-    }
-
-    return {
-      isValid: timingSafeEqual(hash, original),
-      needsRehash: false,
-    };
+    if (hash.length !== original.length) return { isValid: false, needsRehash: false };
+    return { isValid: timingSafeEqual(hash, original), needsRehash: false };
   }
 
   private async signToken(user: Pick<typeof users.$inferSelect, 'id' | 'email' | 'role'>): Promise<string> {
-    return this.jwtService.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    return this.jwtService.signAsync({ sub: user.id, email: user.email, role: user.role });
   }
 
-  private async verifyToken(token: string): Promise<TokenPayload> {
+  async verifyToken(token: string): Promise<TokenPayload> {
     try {
       const payload = await this.jwtService.verifyAsync<TokenPayload>(token);
-
-      if (!payload.sub) {
-        throw new UnauthorizedException('Malformed token payload.');
-      }
-
+      if (!payload.sub) throw new UnauthorizedException('Malformed token payload.');
       return payload;
     } catch {
       throw new UnauthorizedException('Invalid or expired token.');
     }
   }
 
-  private extractBearerToken(authorization?: string): string {
+  extractBearerToken(authorization?: string): string {
     const [scheme, token] = authorization?.split(' ') ?? [];
-
-    if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Authorization header is required.');
-    }
-
+    if (scheme !== 'Bearer' || !token) throw new UnauthorizedException('Authorization header is required.');
     return token;
   }
 }

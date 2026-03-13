@@ -5,6 +5,7 @@ type AuthUser = {
   email: string;
   fullName: string;
   role: string;
+  isEmailVerified?: boolean;
 };
 
 type AuthContextValue = {
