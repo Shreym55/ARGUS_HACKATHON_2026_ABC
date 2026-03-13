@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.data.program_config import get_program_config
 from app.llm.client import llm_client
-from app.llm.prompt_loader import load_prompt
+from app.prompts.review_prompt import REVIEW_PROMPT
 from app.schemas.ai_models import (
     ApplicationData,
     GrantType,
@@ -20,6 +20,7 @@ def review_deterministic_node(state: dict) -> dict:
     deterministic_flags = build_deterministic_risk_flags(application)
     rubric = [{"dimension": dim.name, "weight": dim.weight} for dim in cfg.rubric]
     return {
+        **state,
         "application_data": application.model_dump(mode="json"),
         "deterministic_result": {
             "risk_flags": [flag.model_dump(mode="json") for flag in deterministic_flags],
@@ -76,7 +77,7 @@ def review_llm_node(state: dict) -> dict:
     if llm_client.enabled:
         llm_result = llm_client.invoke_structured(
             ReviewLLMOutput,
-            load_prompt("review_prompt.txt"),
+            REVIEW_PROMPT,
             {
                 "grant_type": application.grant_type.value,
                 "rubric": rubric,
@@ -93,7 +94,7 @@ def review_llm_node(state: dict) -> dict:
     else:
         llm_result = _review_fallback(application, rubric)
 
-    return {"llm_result": llm_result.model_dump(mode="json")}
+    return {**state, "llm_result": llm_result.model_dump(mode="json")}
 
 
 def review_merge_node(state: dict) -> dict:
@@ -111,6 +112,7 @@ def review_merge_node(state: dict) -> dict:
     composite_score = compute_composite_ai_score(application.grant_type, llm_result.score_suggestions)
 
     return {
+        **state,
         "merged_result": {
             "application_id": application.application_id,
             "grant_type": application.grant_type.value,

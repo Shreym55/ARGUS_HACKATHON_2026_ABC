@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.schemas.ai_models import (
     ApplicationData,
     BudgetLine,
@@ -11,6 +13,8 @@ from app.schemas.ai_models import (
 )
 from app.services.application_store import save_application_record
 from app.services.orchestrator_service import orchestrator_service
+
+logger = get_logger("app.submission")
 
 
 def _to_int(value: object, default: int | None = None) -> int | None:
@@ -104,11 +108,23 @@ def submit_application_from_chat(
     screening_result = orchestrator_service.run_screening(
         ScreeningRequest(application=application)
     )
+    application_id = application.application_id or str(uuid4())
     save_application_record(
-        application_id=application.application_id or str(uuid4()),
+        application_id=application_id,
         session_id=session_id,
         grant_type=grant_type.value,
         application_payload=application.model_dump(mode="json"),
         screening_result=screening_result,
     )
-    return application.application_id or "", screening_result
+    logger.info(
+        "application_record_saved",
+        extra={
+            "event": "application_record_saved",
+            "application_id": application_id,
+            "session_id": session_id,
+            "grant_type": grant_type.value,
+            "db_path": get_settings().app_db_path,
+            "screening_result": screening_result,
+        },
+    )
+    return application_id, screening_result

@@ -67,7 +67,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_DISABLE_LLM: ${AI_DISABLE_LLM:-false}
     ports:
-      - '8001:8000'
+      - '8002:8000'
     volumes:
       - ./ai-runtime:/app
 
@@ -79,6 +79,10 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+      - ai-runtime
+    environment:
+      BACKEND_URL: http://backend:3000
+      AI_RUNTIME_URL: http://ai-runtime:8000
     ports:
       - '5174:5173'
     volumes:

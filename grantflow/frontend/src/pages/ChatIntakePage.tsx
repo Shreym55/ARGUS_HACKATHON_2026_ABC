@@ -1,5 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
-import { fetchAiRuntimeJson } from "../services/aiRuntime";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type GrantType = "cdg" | "eig" | "ecag";
 
@@ -34,11 +33,22 @@ type Message = {
   intent?: ChatIntent;
 };
 
+type PendingSocketResponse = {
+  resolve: (value: IntakeChatResponse) => void;
+  reject: (reason?: unknown) => void;
+  timeoutId: number;
+};
+
 function buildSessionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `session-${Date.now()}`;
+}
+
+function buildSocketUrl(sessionId: string) {
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${protocol}://${window.location.host}/ai/api/v1/intake/ws/${sessionId}`;
 }
 
 function ChatIntakePage() {
@@ -60,11 +70,144 @@ function ChatIntakePage() {
     },
   ]);
   const [error, setError] = useState("");
+  const socketRef = useRef<WebSocket | null>(null);
+  const connectPromiseRef = useRef<Promise<WebSocket> | null>(null);
+  const pendingResponseRef = useRef<PendingSocketResponse | null>(null);
 
   const recommendation = useMemo(
-    () => screeningResult?.result?.overall_recommendation?.replaceAll("_", " ") ?? null,
+    () => screeningResult?.result?.overall_recommendation?.replace(/_/g, " ") ?? null,
     [screeningResult]
   );
+
+  const connectSocket = useCallback(async (): Promise<WebSocket> => {
+    const existingSocket = socketRef.current;
+    if (existingSocket && existingSocket.readyState === WebSocket.OPEN) {
+      return existingSocket;
+    }
+    if (connectPromiseRef.current) {
+      return connectPromiseRef.current;
+    }
+
+    connectPromiseRef.current = new Promise<WebSocket>((resolve, reject) => {
+      const socket = new WebSocket(buildSocketUrl(sessionId));
+      let resolved = false;
+
+      socket.onopen = () => {
+        resolved = true;
+        socketRef.current = socket;
+        connectPromiseRef.current = null;
+        resolve(socket);
+      };
+
+      socket.onmessage = (event) => {
+        let payload: unknown;
+        try {
+          payload = JSON.parse(typeof event.data === "string" ? event.data : "");
+        } catch {
+          const pending = pendingResponseRef.current;
+          if (!pending) {
+            return;
+          }
+          clearTimeout(pending.timeoutId);
+          pendingResponseRef.current = null;
+          pending.reject(new Error("Invalid response received from socket."));
+          return;
+        }
+
+        const pending = pendingResponseRef.current;
+        if (!pending) {
+          return;
+        }
+
+        clearTimeout(pending.timeoutId);
+        pendingResponseRef.current = null;
+
+        if (payload && typeof payload === "object" && "error" in payload) {
+          pending.reject(new Error(String((payload as { error?: unknown }).error ?? "Socket error")));
+          return;
+        }
+
+        pending.resolve(payload as IntakeChatResponse);
+      };
+
+      socket.onerror = () => {
+        if (resolved) {
+          return;
+        }
+        connectPromiseRef.current = null;
+        reject(new Error("Unable to connect to AI chat socket."));
+      };
+
+      socket.onclose = (event) => {
+        if (socketRef.current === socket) {
+          socketRef.current = null;
+        }
+        connectPromiseRef.current = null;
+
+        const pending = pendingResponseRef.current;
+        if (!pending) {
+          return;
+        }
+        clearTimeout(pending.timeoutId);
+        pendingResponseRef.current = null;
+        pending.reject(
+          new Error(event.reason || "Socket connection closed before receiving a response.")
+        );
+      };
+    });
+
+    return connectPromiseRef.current;
+  }, [sessionId]);
+
+  const sendSocketMessage = useCallback(
+    async (message: string, selectedGrantType: GrantType): Promise<IntakeChatResponse> => {
+      const socket = await connectSocket();
+
+      if (pendingResponseRef.current) {
+        throw new Error("Previous message is still being processed.");
+      }
+
+      return new Promise<IntakeChatResponse>((resolve, reject) => {
+        const timeoutId = window.setTimeout(() => {
+          const pending = pendingResponseRef.current;
+          if (!pending) {
+            return;
+          }
+          pendingResponseRef.current = null;
+          pending.reject(new Error("Timed out waiting for chat response."));
+        }, 60000);
+
+        pendingResponseRef.current = { resolve, reject, timeoutId };
+
+        try {
+          socket.send(JSON.stringify({ message, grant_type: selectedGrantType }));
+        } catch (sendError) {
+          clearTimeout(timeoutId);
+          pendingResponseRef.current = null;
+          reject(sendError instanceof Error ? sendError : new Error("Failed to send socket message."));
+        }
+      });
+    },
+    [connectSocket]
+  );
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingResponseRef.current;
+      if (pending) {
+        clearTimeout(pending.timeoutId);
+        pendingResponseRef.current = null;
+        pending.reject(new Error("Chat socket closed."));
+      }
+
+      const socket = socketRef.current;
+      if (socket && socket.readyState <= WebSocket.OPEN) {
+        socket.close(1000, "Chat page closed");
+      }
+      socketRef.current = null;
+      connectPromiseRef.current = null;
+    };
+  }, []);
 
   async function sendMessage(message: string) {
     setIsSending(true);
@@ -72,16 +215,7 @@ function ChatIntakePage() {
     setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: message }]);
 
     try {
-      const response = await fetchAiRuntimeJson<IntakeChatResponse>("/api/v1/intake/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          session_id: sessionId,
-          message,
-          grant_type: grantType,
-          collected_fields: collectedFields,
-          current_field_key: currentFieldKey,
-        }),
-      });
+      const response = await sendSocketMessage(message, grantType);
 
       setCollectedFields(response.collected_fields ?? {});
       setCurrentFieldKey(response.current_field_key ?? null);

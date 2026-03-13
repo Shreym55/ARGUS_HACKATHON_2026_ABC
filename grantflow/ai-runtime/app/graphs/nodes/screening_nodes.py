@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.data.program_config import get_program_config
 from app.llm.client import llm_client
-from app.llm.prompt_loader import load_prompt
+from app.prompts.screening_prompt import SCREENING_PROMPT
 from app.schemas.ai_models import (
     ApplicationData,
     GrantType,
@@ -19,6 +19,7 @@ def screening_deterministic_node(state: dict) -> dict:
     hard_checks = run_hard_checks(application)
     advisory_flags = build_screening_advisory_flags(application)
     return {
+        **state,
         "application_data": application.model_dump(mode="json"),
         "deterministic_result": {
             "hard_checks": [check.model_dump(mode="json") for check in hard_checks],
@@ -87,7 +88,7 @@ def screening_llm_node(state: dict) -> dict:
     if llm_client.enabled:
         llm_result = llm_client.invoke_structured(
             ScreeningLLMOutput,
-            load_prompt("screening_prompt.txt"),
+            SCREENING_PROMPT,
             {
                 "grant_type": application.grant_type.value,
                 "thematic_threshold": cfg.thematic_threshold,
@@ -97,7 +98,7 @@ def screening_llm_node(state: dict) -> dict:
     else:
         llm_result = _screening_fallback(application, cfg.thematic_threshold)
 
-    return {"llm_result": llm_result.model_dump(mode="json")}
+    return {**state, "llm_result": llm_result.model_dump(mode="json")}
 
 
 def screening_merge_node(state: dict) -> dict:
@@ -125,6 +126,7 @@ def screening_merge_node(state: dict) -> dict:
     )
 
     return {
+        **state,
         "merged_result": {
             "application_id": application.application_id,
             "grant_type": application.grant_type.value,

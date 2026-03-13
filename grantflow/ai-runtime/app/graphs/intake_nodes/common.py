@@ -31,6 +31,21 @@ QNA_KEYWORDS = {
 OUT_OF_SCOPE_KEYWORDS = {"joke", "movie", "recipe", "sports", "stock", "crypto", "politics"}
 
 
+def get_message(state: dict) -> str:
+    """
+    Backward-compatible message accessor for intake graph state.
+    Supports both `message` (current) and `user_msg` (legacy).
+    """
+    message = state.get("message")
+    if message is None:
+        message = state.get("user_msg")
+    return str(message or "").strip()
+
+
+def get_session_id(state: dict) -> str:
+    return str(state.get("session_id") or "")
+
+
 def validate_value(field_type: str, value: Any) -> str | None:
     if value is None:
         return "Value is required."

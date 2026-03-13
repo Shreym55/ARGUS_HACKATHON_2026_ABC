@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.llm.client import llm_client
-from app.llm.prompt_loader import load_prompt
+from app.prompts.compliance_prompt import COMPLIANCE_PROMPT
 from app.schemas.ai_models import (
     ComplianceAction,
     ComplianceLLMOutput,
@@ -18,6 +18,7 @@ def compliance_deterministic_node(state: dict) -> dict:
     payload = CompliancePayload.model_validate(state["payload"]["payload"])
     financial_flags = run_financial_checks(payload)
     return {
+        **state,
         "compliance_payload": payload.model_dump(mode="json"),
         "deterministic_result": {
             "financial_flags": [flag.model_dump(mode="json") for flag in financial_flags],
@@ -67,7 +68,7 @@ def compliance_llm_node(state: dict) -> dict:
     if llm_client.enabled:
         llm_result = llm_client.invoke_structured(
             ComplianceLLMOutput,
-            load_prompt("compliance_prompt.txt"),
+            COMPLIANCE_PROMPT,
             {
                 "grant_type": payload.grant_type.value,
                 "report_type": payload.report_type,
@@ -79,7 +80,7 @@ def compliance_llm_node(state: dict) -> dict:
     else:
         llm_result = _compliance_fallback(payload)
 
-    return {"llm_result": llm_result.model_dump(mode="json")}
+    return {**state, "llm_result": llm_result.model_dump(mode="json")}
 
 
 def compliance_merge_node(state: dict) -> dict:
@@ -98,6 +99,7 @@ def compliance_merge_node(state: dict) -> dict:
     )
 
     return {
+        **state,
         "merged_result": {
             "report_id": payload.report_id,
             "grant_type": payload.grant_type.value,

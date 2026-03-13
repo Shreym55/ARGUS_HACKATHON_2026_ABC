@@ -16,12 +16,13 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://backend:3000",
+        target: process.env.BACKEND_URL ?? "http://localhost:3001",
         changeOrigin: true,
       },
       "/ai": {
-        target: "http://ai-runtime:8000",
+        target: process.env.AI_RUNTIME_URL ?? "http://localhost:8002",
         changeOrigin: true,
+        ws: true,
         rewrite: (path) => path.replace(/^\/ai/, ""),
       },
     },

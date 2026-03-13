@@ -256,22 +256,6 @@ class GraphExecutionResult(BaseModel):
     result: dict[str, Any]
 
 
-class IntakeTurnRequest(BaseModel):
-    grant_type: GrantType
-    collected_fields: dict[str, Any] = Field(default_factory=dict)
-    last_field_key: str | None = None
-    last_answer: Any | None = None
-
-
-class IntakeTurnResponse(BaseModel):
-    grant_type: GrantType
-    collected_fields: dict[str, Any] = Field(default_factory=dict)
-    next_field_key: str | None = None
-    next_question: str | None = None
-    validation_error: str | None = None
-    is_complete: bool = False
-
-
 class IntakeChatRequest(BaseModel):
     session_id: str
     message: str
@@ -302,3 +286,8 @@ class IntentClassificationLLMOutput(BaseModel):
 
 class QnaLLMOutput(BaseModel):
     answer: str
+
+
+class FieldExtractionLLMOutput(BaseModel):
+    extracted: str | int | float | None = None
+    confidence: str = "low"
